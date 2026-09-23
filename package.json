@@ -1,0 +1,12 @@
+{
+  "name": "agenda-pai",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Agenda de compromissos com lembrete push 1 dia e 2 horas antes",
+  "scripts": {
+    "check-reminders": "node scripts/check-reminders.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.6.0"
+  }
+}
