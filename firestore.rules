@@ -2,7 +2,10 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function isOwner() {
-      return request.auth != null && request.auth.uid == "q67SwKv51AOn7pp7mQTxdV2xCv33";
+      return request.auth != null && request.auth.uid in [
+        "q67SwKv51AOn7pp7mQTxdV2xCv33",
+        "Ogv5kGERJKguWd5lSux5xDu1zZr1"
+      ];
     }
 
     match /appointments/{appointmentId} {

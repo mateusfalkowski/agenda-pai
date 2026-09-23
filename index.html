@@ -102,6 +102,58 @@
   #add-form { background: var(--card); border: 1px solid var(--card-border); border-radius: 14px; padding: 16px; margin-bottom: 22px; }
   #add-form h2 { margin: 0; font-size: 1rem; }
   .section-title { font-size: 0.95rem; color: var(--text-dim); margin: 26px 0 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+
+  .card { cursor: pointer; }
+
+  .calendar-card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 22px;
+  }
+  .calendar-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .calendar-header .month-label { font-weight: 600; text-transform: capitalize; }
+  .calendar-header button {
+    background: transparent; color: var(--text); border: 1px solid var(--card-border);
+    width: 36px; height: 36px; padding: 0; border-radius: 8px; font-size: 1.1rem; line-height: 1;
+  }
+  .calendar-weekdays, .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .calendar-weekdays div { text-align: center; font-size: 0.7rem; color: var(--text-dim); padding-bottom: 6px; }
+  .calendar-day {
+    aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border-radius: 8px; font-size: 0.85rem; cursor: pointer; color: var(--text); background: transparent; border: none;
+  }
+  .calendar-day.empty { visibility: hidden; cursor: default; }
+  .calendar-day.today { border: 1px solid var(--accent); }
+  .calendar-day.selected { background: var(--accent); color: white; }
+  .calendar-day .dot { width: 5px; height: 5px; border-radius: 50%; background: #93c5fd; margin-top: 3px; }
+  .calendar-day.selected .dot { background: white; }
+
+  .filter-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin: -2px 0 12px;
+  }
+  .filter-bar span { font-size: 0.85rem; color: var(--text-dim); }
+  .filter-bar button { background: transparent; color: var(--accent); border: none; padding: 4px; font-size: 0.85rem; font-weight: 600; }
+
+  .report-preview { color: #86efac; font-size: 0.85rem; margin-top: 8px; }
+
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: flex; align-items: flex-end; justify-content: center; z-index: 50;
+  }
+  .modal-overlay.hidden { display: none; }
+  .modal-sheet {
+    background: var(--card); border-top-left-radius: 18px; border-top-right-radius: 18px;
+    padding: 20px 16px max(20px, env(safe-area-inset-bottom)); width: 100%; max-width: 560px;
+    max-height: 85vh; overflow-y: auto;
+  }
+  .modal-sheet h3 { margin: 0 0 2px; }
+  .modal-when { color: #93c5fd; font-weight: 600; margin-bottom: 10px; }
+  .modal-meta { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 4px; white-space: pre-wrap; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+  .modal-actions button { flex: 1; margin-top: 0; }
 </style>
 </head>
 <body>
@@ -128,6 +180,18 @@
       <button id="enable-notif-btn">Ativar</button>
     </div>
 
+    <div class="calendar-card">
+      <div class="calendar-header">
+        <button type="button" id="cal-prev">‹</button>
+        <span class="month-label" id="cal-month-label"></span>
+        <button type="button" id="cal-next">›</button>
+      </div>
+      <div class="calendar-weekdays">
+        <div>D</div><div>S</div><div>T</div><div>Q</div><div>Q</div><div>S</div><div>S</div>
+      </div>
+      <div class="calendar-grid" id="cal-grid"></div>
+    </div>
+
     <form id="add-form">
       <h2>Novo compromisso</h2>
       <label for="f-client">Cliente</label>
@@ -141,8 +205,27 @@
       <button type="submit" class="btn-primary">Adicionar</button>
     </form>
 
-    <div class="section-title">Próximos compromissos</div>
+    <div class="section-title" id="list-title">Próximos compromissos</div>
+    <div class="filter-bar hidden" id="filter-bar">
+      <span id="filter-label"></span>
+      <button type="button" id="clear-filter-btn">Ver próximos</button>
+    </div>
     <div id="list"></div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="detail-modal">
+  <div class="modal-sheet">
+    <h3 id="modal-client"></h3>
+    <div class="modal-when" id="modal-when"></div>
+    <div class="modal-meta" id="modal-address"></div>
+    <div class="modal-meta" id="modal-notes"></div>
+    <label for="modal-report">O que foi feito na visita</label>
+    <textarea id="modal-report" rows="4" placeholder="Registre aqui o resultado da visita..."></textarea>
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" id="modal-close-btn">Fechar</button>
+      <button type="button" class="btn-primary" id="modal-save-btn">Salvar</button>
+    </div>
   </div>
 </div>
 
@@ -153,7 +236,7 @@ import {
   setPersistence, browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  getFirestore, collection, addDoc, doc, setDoc, getDoc,
+  getFirestore, collection, addDoc, doc, setDoc, getDoc, updateDoc,
   onSnapshot, query, orderBy, deleteDoc, serverTimestamp,
   Timestamp, arrayUnion
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -170,6 +253,24 @@ const appScreen = document.getElementById('app-screen');
 const loginError = document.getElementById('login-error');
 const notifBanner = document.getElementById('notif-banner');
 const listEl = document.getElementById('list');
+const listTitleEl = document.getElementById('list-title');
+const filterBar = document.getElementById('filter-bar');
+const filterLabel = document.getElementById('filter-label');
+const calGrid = document.getElementById('cal-grid');
+const calMonthLabel = document.getElementById('cal-month-label');
+const detailModal = document.getElementById('detail-modal');
+
+let allAppointments = [];
+let calendarMonth = new Date();
+calendarMonth.setDate(1);
+let selectedDateKey = null;
+
+function dateKey(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
 
 document.getElementById('login-btn').addEventListener('click', async () => {
   const email = document.getElementById('login-email').value.trim();
@@ -197,30 +298,53 @@ onAuthStateChanged(auth, (user) => {
     appScreen.classList.add('hidden');
     loginScreen.classList.remove('hidden');
     if (unsubscribeList) { unsubscribeList(); unsubscribeList = null; }
+    allAppointments = [];
+    selectedDateKey = null;
     listEl.innerHTML = '';
+    calGrid.innerHTML = '';
   }
 });
 
 function startListening(uid) {
   const q = query(collection(db, 'appointments'), orderBy('datetime', 'asc'));
   unsubscribeList = onSnapshot(q, (snap) => {
-    const now = Date.now();
     const items = [];
     snap.forEach((d) => {
       const data = d.data();
       if (data.ownerUid !== uid) return;
-      if (data.datetime && data.datetime.toMillis() < now - 60 * 60 * 1000) return; // esconde passados há mais de 1h
       items.push({ id: d.id, ...data });
     });
-    renderList(items);
+    allAppointments = items;
+    renderCalendar();
+    renderList();
   });
 }
 
-function renderList(items) {
+function renderList() {
+  let items;
+
+  if (selectedDateKey) {
+    items = allAppointments.filter((item) => dateKey(item.datetime.toDate()) === selectedDateKey);
+    filterBar.classList.remove('hidden');
+    const [y, m, d] = selectedDateKey.split('-').map(Number);
+    filterLabel.textContent = 'Compromissos em ' + new Date(y, m - 1, d).toLocaleDateString('pt-BR', {
+      day: '2-digit', month: '2-digit', year: 'numeric'
+    });
+    listTitleEl.classList.add('hidden');
+  } else {
+    const now = Date.now();
+    items = allAppointments.filter((item) => {
+      return item.datetime && item.datetime.toMillis() >= now - 60 * 60 * 1000;
+    });
+    filterBar.classList.add('hidden');
+    listTitleEl.classList.remove('hidden');
+  }
+
   if (items.length === 0) {
-    listEl.innerHTML = '<div class="empty">Nenhum compromisso agendado.</div>';
+    listEl.innerHTML = `<div class="empty">${selectedDateKey ? 'Nenhum compromisso nesse dia.' : 'Nenhum compromisso agendado.'}</div>`;
     return;
   }
+
   listEl.innerHTML = '';
   for (const item of items) {
     const when = item.datetime.toDate().toLocaleString('pt-BR', {
@@ -238,18 +362,110 @@ function renderList(items) {
         <span class="pill ${item.notified1Day ? 'done' : ''}">Lembrete 1 dia antes ${item.notified1Day ? '✓' : ''}</span>
         <span class="pill ${item.notified2h ? 'done' : ''}">Lembrete 2h antes ${item.notified2h ? '✓' : ''}</span>
       </div>
+      ${item.visitReport ? `<div class="report-preview">✅ Relatório: ${escapeHtml(item.visitReport)}</div>` : ''}
       <div class="card-footer">
         <button class="btn-danger" data-id="${item.id}">Excluir</button>
       </div>
     `;
-    card.querySelector('.btn-danger').addEventListener('click', async () => {
+    card.querySelector('.btn-danger').addEventListener('click', async (e) => {
+      e.stopPropagation();
       if (confirm('Excluir este compromisso?')) {
         await deleteDoc(doc(db, 'appointments', item.id));
       }
     });
+    card.addEventListener('click', () => openDetailModal(item));
     listEl.appendChild(card);
   }
 }
+
+function renderCalendar() {
+  const year = calendarMonth.getFullYear();
+  const month = calendarMonth.getMonth();
+
+  calMonthLabel.textContent = calendarMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+  const daysWithAppt = new Set(allAppointments.map((item) => dateKey(item.datetime.toDate())));
+  const todayKey = dateKey(new Date());
+
+  const firstDayOfMonth = new Date(year, month, 1);
+  const startOffset = firstDayOfMonth.getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  calGrid.innerHTML = '';
+
+  for (let i = 0; i < startOffset; i++) {
+    const empty = document.createElement('div');
+    empty.className = 'calendar-day empty';
+    calGrid.appendChild(empty);
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const cellDate = new Date(year, month, day);
+    const key = dateKey(cellDate);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'calendar-day';
+    if (key === todayKey) btn.classList.add('today');
+    if (key === selectedDateKey) btn.classList.add('selected');
+    btn.innerHTML = `${day}${daysWithAppt.has(key) ? '<span class="dot"></span>' : ''}`;
+    btn.addEventListener('click', () => {
+      selectedDateKey = (selectedDateKey === key) ? null : key;
+      renderCalendar();
+      renderList();
+    });
+    calGrid.appendChild(btn);
+  }
+}
+
+document.getElementById('cal-prev').addEventListener('click', () => {
+  calendarMonth.setMonth(calendarMonth.getMonth() - 1);
+  renderCalendar();
+});
+document.getElementById('cal-next').addEventListener('click', () => {
+  calendarMonth.setMonth(calendarMonth.getMonth() + 1);
+  renderCalendar();
+});
+document.getElementById('clear-filter-btn').addEventListener('click', () => {
+  selectedDateKey = null;
+  renderCalendar();
+  renderList();
+});
+
+let activeDetailItem = null;
+
+function openDetailModal(item) {
+  activeDetailItem = item;
+  const when = item.datetime.toDate().toLocaleString('pt-BR', {
+    weekday: 'long', day: '2-digit', month: '2-digit',
+    hour: '2-digit', minute: '2-digit'
+  });
+  document.getElementById('modal-client').textContent = item.clientName;
+  document.getElementById('modal-when').textContent = when;
+  document.getElementById('modal-address').textContent = item.address ? `📍 ${item.address}` : '';
+  document.getElementById('modal-notes').textContent = item.notes ? `📝 ${item.notes}` : '';
+  document.getElementById('modal-report').value = item.visitReport || '';
+  detailModal.classList.remove('hidden');
+}
+
+function closeDetailModal() {
+  activeDetailItem = null;
+  detailModal.classList.add('hidden');
+}
+
+document.getElementById('modal-close-btn').addEventListener('click', closeDetailModal);
+detailModal.addEventListener('click', (e) => {
+  if (e.target === detailModal) closeDetailModal();
+});
+
+document.getElementById('modal-save-btn').addEventListener('click', async () => {
+  if (!activeDetailItem) return;
+  const report = document.getElementById('modal-report').value.trim();
+  await updateDoc(doc(db, 'appointments', activeDetailItem.id), {
+    visitReport: report,
+    visitReportUpdatedAt: serverTimestamp()
+  });
+  closeDetailModal();
+});
 
 function escapeHtml(str) {
   const div = document.createElement('div');
