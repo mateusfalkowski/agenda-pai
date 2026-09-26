@@ -1,12 +1,18 @@
 {
   "name": "agenda-pai",
   "private": true,
-  "version": "1.0.0",
-  "description": "Agenda de compromissos com lembrete push 1 dia e 2 horas antes",
+  "version": "2.0.0",
+  "description": "Agenda de compromissos com clientes, relatório de visitas e lembretes push (1 dia e 2 horas antes)",
+  "type": "module",
   "scripts": {
-    "check-reminders": "node scripts/check-reminders.js"
+    "test": "node --test test/*.test.js",
+    "check-reminders": "node scripts/check-reminders.js",
+    "deploy-rules": "node scripts/deploy-rules.js"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "dependencies": {
-    "firebase-admin": "^12.6.0"
+    "firebase-admin": "^14.5.0"
   }
 }

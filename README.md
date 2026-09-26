@@ -1,94 +1,123 @@
 # Agenda de Compromissos
 
-App simples (PWA) pra marcar compromissos com clientes e receber lembrete push
-no celular: **1 dia antes** e **2 horas antes** do horário marcado.
+App (PWA) para organizar visitas a clientes, registrar o que foi feito em cada visita e receber
+lembretes no celular **1 dia antes** e **2 horas antes** de cada compromisso.
 
-Como funciona:
-- Você acessa o app pelo celular (funciona como app instalado, ícone na tela
-  inicial) e cadastra os compromissos (cliente, data/hora, endereço, observações).
-- Os dados ficam salvos no Firebase (Firestore).
-- A cada 5 minutos, uma automação no GitHub (GitHub Actions) confere se algum
-  compromisso está entrando na janela de "1 dia antes" ou "2 horas antes" e,
-  se estiver, dispara a notificação push pro celular.
-- Tudo isso no plano gratuito do Firebase e do GitHub — sem custo e sem cartão
-  de crédito.
+**Endereço:** https://mateusfalkowski.github.io/agenda-pai/
 
-> A notificação pode chegar com até ~5 minutos de atraso em relação ao horário
-> exato (é o intervalo da checagem automática). Pra lembrete de compromisso
-> isso não costuma fazer diferença.
+## Funcionalidades
 
-## Passo a passo da configuração (só precisa fazer uma vez)
+- **Agenda**: calendário do mês com marcação dos dias ocupados, lista de próximos compromissos agrupada
+  por dia, resumo do mês (agendados, concluídos, valores recebidos e a receber).
+- **Aguardando relatório**: visitas que já passaram e ainda não foram concluídas aparecem no topo, com
+  botão "Concluir".
+- **Concluir visita**: registrar o que foi feito, valor cobrado e se já foi pago. Depois é possível
+  "Agendar retorno" com um toque.
+- **Clientes**: cadastro automático ao agendar (o app reconhece o nome mesmo sem acento/maiúscula),
+  busca por nome, telefone ou endereço, ficha com histórico completo de visitas e valores.
+- **Atalhos**: ligar, WhatsApp, abrir no Google Maps ou no Waze, e **mensagem de confirmação pronta**
+  para o cliente pelo WhatsApp.
+- **Compromissos repetidos**: semanal, quinzenal ou mensal (até 52 vezes); dá para excluir só um ou
+  "este e os próximos".
+- **Aviso de conflito**: ao agendar, mostra os outros compromissos do dia e avisa se o horário choca.
+- **Remarcar**: ao mudar data/hora, os lembretes voltam a valer para o novo horário.
+- **Notificações**: lembretes 1 dia e 2 horas antes, com botão "Abrir no mapa"; tocar na notificação
+  abre o compromisso. Opcional: resumo da agenda às 7h.
+- **Funciona sem internet**: a agenda abre e aceita alterações offline; sincroniza quando a conexão volta.
+- **Ajustes**: status das notificações do aparelho, botão de **notificação de teste**, saúde do sistema de
+  lembretes, exportação de todos os compromissos em planilha (CSV para Excel), nome para assinar as
+  mensagens.
+- Tema claro/escuro automático, ícone próprio e atalho "Novo compromisso" ao segurar o ícone do app.
 
-### 1. Criar o projeto no Firebase
-1. Acesse https://console.firebase.google.com e crie um projeto novo (ex:
-   "agenda-pai"). Pode desativar o Google Analytics, não precisa.
+## Como usar no celular (Android)
 
-### 2. Ativar o login (Authentication)
-1. No menu lateral, vá em **Build > Authentication > Get started**.
-2. Ative o provedor **E-mail/senha**.
-3. Na aba **Users**, clique em **Add user** e crie um usuário com o e-mail e
-   senha que seu pai vai usar pra entrar no app. Anote o **User UID** que
-   aparece na lista depois de criado — vai precisar dele no passo 4.
+1. Abra o endereço acima no **Google Chrome** e entre com o e-mail e a senha.
+2. Toque em **Ativar** no aviso de notificações e permita.
+3. No menu do Chrome (⋮), toque em **Adicionar à tela inicial** (ou use o botão "Instalar" do app).
+4. Em **Ajustes › Enviar notificação de teste**, confirme que as notificações chegam.
 
-### 3. Ativar o banco de dados (Firestore)
-1. Vá em **Build > Firestore Database > Create database**.
-2. Pode criar em modo de produção, na região padrão (ex: `southamerica-east1`
-   se disponível, ou a região sugerida).
+## Como funciona
 
-### 4. Colar as regras de segurança
-1. Ainda no Firestore, vá na aba **Rules**.
-2. Abra o arquivo [`firestore.rules`](firestore.rules) deste projeto, troque
-   `COLOQUE_O_UID_AQUI` pelo UID do usuário criado no passo 2, e cole o
-   conteúdo inteiro no editor de regras do console, substituindo o que já
-   está lá. Clique em **Publish**.
+```
+Celular (PWA)  ──grava──▶  Firestore  ◀──lê/marca──  GitHub Actions (a cada ~5 min)
+      ▲                                                     │
+      └──────────── push (Firebase Cloud Messaging) ◀───────┘
+```
 
-### 5. Registrar o app da Web e pegar as credenciais
-1. Na página inicial do projeto (ícone de engrenagem > **Project settings**),
-   role até "Your apps" e clique no ícone `</>` (Web).
-2. Dê um nome (ex: "agenda-web") e registre o app. **Não** marque Firebase
-   Hosting.
-3. Copie o objeto `firebaseConfig` que aparece e cole os valores no arquivo
-   [`firebase-config.js`](firebase-config.js) deste projeto, substituindo os
-   `"COLOQUE_AQUI"`.
-4. Copie os mesmos valores também dentro do arquivo
-   [`firebase-messaging-sw.js`](firebase-messaging-sw.js) (o objeto de
-   configuração duplicado lá no topo).
+- O app grava os compromissos no **Firestore** (plano gratuito do Firebase).
+- O workflow [`Lembretes`](.github/workflows/check-reminders.yml) roda a cada ~5 minutos no GitHub
+  Actions, lê **só os compromissos das próximas ~24h** (economiza a cota gratuita), decide quais
+  lembretes enviar ([`js/logic.js`](js/logic.js)) e envia o push. Tokens de aparelhos inválidos são
+  removidos automaticamente, e uma falha temporária do FCM é repetida na rodada seguinte.
+- O [service worker](firebase-messaging-sw.js) monta a notificação no aparelho e mantém o app
+  disponível offline.
+- A cada rodada, o verificador grava um "sinal de vida" em `system/status`; se ele parar, o app mostra
+  um aviso na agenda.
 
-### 6. Gerar a chave de notificação push (VAPID)
-1. Em **Project settings > Cloud Messaging**, role até "Web configuration" e
-   clique em **Generate key pair**.
-2. Copie a chave gerada e cole em `vapidKey` no arquivo `firebase-config.js`.
+### Limitações conhecidas
 
-### 7. Gerar a chave de serviço (pra automação do GitHub)
-1. Em **Project settings > Service accounts**, clique em
-   **Generate new private key**. Isso baixa um arquivo `.json`.
-2. **Não coloque esse arquivo dentro da pasta do projeto** (ele já está no
-   `.gitignore` por segurança, mas evite mesmo assim). Guarde em outro lugar
-   por enquanto — você vai precisar do conteúdo dele no próximo passo.
+- **Atraso**: o agendamento do GitHub é "melhor esforço" — o lembrete pode chegar alguns minutos depois
+  do horário exato (normalmente 5–15 min; em horários de pico, mais).
+- **60 dias sem commits**: em repositório público, o GitHub **desativa** agendamentos após 60 dias sem
+  atividade. O app avisa em **Ajustes** a partir de 45 dias, e quem ativar "Alertas técnicos" recebe
+  uma notificação a partir de 50 dias. Para renovar, basta qualquer commit. Se já tiver sido desativado:
+  aba **Actions › Lembretes › Enable workflow** (ou `gh workflow enable check-reminders.yml`).
+  (Não usamos commits automáticos "falsos" para contornar isso — o GitHub considera abuso.)
 
-### 8. Subir o projeto pro GitHub
-Depois que eu (Claude) inicializar o repositório e você confirmar, crie um
-repositório novo no GitHub (pode ser privado, já que tem dados de clientes) e
-faça o push.
+## Manutenção
 
-### 9. Configurar o segredo no GitHub Actions
-1. No repositório do GitHub, vá em **Settings > Secrets and variables >
-   Actions > New repository secret**.
-2. Nome: `FIREBASE_SERVICE_ACCOUNT_KEY`.
-3. Valor: cole o conteúdo **inteiro** do arquivo `.json` baixado no passo 7.
+### Liberar acesso para uma nova pessoa
+1. Firebase Console › Authentication › **Add user** (e-mail e senha) e copie o UID.
+2. Adicione o UID na lista de [`firestore.rules`](firestore.rules) e faça commit/push.
+3. O workflow [`Publicar regras do Firestore`](.github/workflows/deploy-rules.yml) publica as regras
+   automaticamente. Se ele falhar, cole o conteúdo do arquivo em Firestore › **Rules** › Publish.
 
-### 10. Ativar o GitHub Pages
-1. Em **Settings > Pages**, em "Build and deployment", selecione a branch
-   `main` e a pasta `/ (root)`.
-2. Depois de alguns minutos, o app fica disponível em
-   `https://SEU_USUARIO.github.io/NOME_DO_REPOSITORIO/`.
+### Segredo do GitHub
+`FIREBASE_SERVICE_ACCOUNT_KEY` (Settings › Secrets and variables › Actions) contém a chave da conta de
+serviço do Firebase. Ela nunca deve ser commitada no repositório.
 
-### 11. Instalar no celular do seu pai
-1. Abra o link do GitHub Pages no Chrome do Android.
-2. Faça login com o e-mail/senha criados no passo 2.
-3. Toque em "Ativar" no aviso de notificações e permita.
-4. No menu do Chrome (⋮), toque em **Adicionar à tela inicial** — isso
-   instala o app como se fosse nativo.
+## Desenvolvimento
 
-Pronto: a partir daí, todo compromisso cadastrado vai gerar lembrete
-automático 1 dia antes e 2 horas antes.
+```bash
+npm install
+npm test
+```
+
+Testes (Node, sem dependências extras) cobrem a lógica de datas/lembretes, o verificador com banco e
+envio simulados e o service worker.
+
+**Testar a interface sem tocar nos dados reais:** sirva a pasta localmente e abra com `?mock`:
+
+```bash
+python -m http.server 5544
+```
+
+Depois abra `http://localhost:5544/?mock&reset` e entre com `teste@agenda.dev` / `teste123`.
+O [`dev/mock-firebase.js`](dev/mock-firebase.js) imita o Firebase no navegador com dados de exemplo
+(`?mock&deny=clients` simula regras do banco desatualizadas). Esse modo só funciona em `localhost`.
+
+### Estrutura
+
+| Caminho | Conteúdo |
+| --- | --- |
+| `index.html`, `styles.css` | Estrutura e visual do app |
+| `js/app.js` | Inicialização, login, abas, links vindos de notificações |
+| `js/store.js` | Sincronização com o Firestore e todas as gravações |
+| `js/logic.js` | Regras puras (datas, lembretes, telefone, valores, CSV) — usada no app e no servidor |
+| `js/views/*` | Telas: agenda, compromisso, clientes, ajustes |
+| `js/notifications.js` | Permissão, token do aparelho, instalação, service worker |
+| `firebase-messaging-sw.js` | Service worker (push + offline) |
+| `scripts/` | Verificador de lembretes e publicação das regras (GitHub Actions) |
+| `test/` | Testes automatizados |
+| `dev/` | Backend falso para testes locais |
+
+### Modelo de dados (Firestore)
+
+- `appointments/{id}`: cliente, telefone, endereço, observações, `datetime`, `durationMin`, `status`
+  (`scheduled` · `done` · `canceled`), `visitReport`, `price`, `paid`, série (`seriesId`), marcações de
+  lembrete (`notified1Day`, `notified2h`, `remindersInfo`).
+- `clients/{id}`: nome, telefone, endereço, anotações.
+- `users/{uid}`: preferências (lembretes, resumo diário, alertas, nome de assinatura).
+- `deviceTokens/{uid}`: aparelhos cadastrados para receber push.
+- `testPushes/{id}`: pedidos de notificação de teste feitos pelo app.
+- `system/status`: sinal de vida do verificador.

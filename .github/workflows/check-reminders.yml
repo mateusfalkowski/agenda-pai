@@ -1,19 +1,32 @@
-name: Checar lembretes de compromissos
+name: Lembretes
 
 on:
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch: {}
 
+# Uma rodada por vez: evita lembrete duplicado se o GitHub atrasar e acumular execuções.
+concurrency:
+  group: reminders
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: '20'
-      - run: npm ci
-      - run: npm run check-reminders
+          node-version: 24
+          cache: npm
+      - run: npm ci --omit=dev --ignore-scripts
+      - name: Data do último commit (o GitHub desativa agendamentos após 60 dias sem commits)
+        run: echo "LAST_COMMIT_AT=$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
+      - name: Checar e enviar lembretes
+        run: npm run check-reminders
         env:
           FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}

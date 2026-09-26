@@ -1,14 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#2563eb"/>
-  <rect x="96" y="128" width="320" height="272" rx="24" fill="#ffffff"/>
-  <rect x="96" y="128" width="320" height="72" rx="24" fill="#1d4ed8"/>
-  <rect x="152" y="88" width="24" height="64" rx="12" fill="#1d4ed8"/>
-  <rect x="336" y="88" width="24" height="64" rx="12" fill="#1d4ed8"/>
+  <rect width="512" height="512" rx="112" fill="#2563eb"/>
+  <rect x="128" y="150" width="256" height="242" rx="32" fill="#ffffff"/>
+  <path d="M160 150h192a32 32 0 0 1 32 32v44H128v-44a32 32 0 0 1 32-32z" fill="#1d4ed8"/>
+  <rect x="178" y="116" width="28" height="68" rx="14" fill="#dbeafe"/>
+  <rect x="306" y="116" width="28" height="68" rx="14" fill="#dbeafe"/>
   <g fill="#2563eb">
-    <rect x="136" y="232" width="48" height="40" rx="8"/>
-    <rect x="232" y="232" width="48" height="40" rx="8"/>
-    <rect x="328" y="232" width="48" height="40" rx="8"/>
-    <rect x="136" y="312" width="48" height="40" rx="8"/>
-    <rect x="232" y="312" width="48" height="40" rx="8"/>
+    <rect x="164" y="258" width="48" height="40" rx="9"/>
+    <rect x="232" y="258" width="48" height="40" rx="9"/>
+    <rect x="300" y="258" width="48" height="40" rx="9"/>
+    <rect x="164" y="320" width="48" height="40" rx="9"/>
+    <rect x="232" y="320" width="48" height="40" rx="9"/>
+    <rect x="300" y="320" width="48" height="40" rx="9"/>
   </g>
 </svg>

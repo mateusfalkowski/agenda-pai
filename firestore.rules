@@ -1,18 +1,16 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Apenas as contas autorizadas acessam os dados (agenda compartilhada entre elas).
+    // Para liberar uma nova conta, adicione o UID dela (Firebase Console > Authentication).
     function isOwner() {
       return request.auth != null && request.auth.uid in [
-        "q67SwKv51AOn7pp7mQTxdV2xCv33",
-        "Ogv5kGERJKguWd5lSux5xDu1zZr1"
+        "q67SwKv51AOn7pp7mQTxdV2xCv33", // conta principal
+        "Ogv5kGERJKguWd5lSux5xDu1zZr1"  // conta de administração
       ];
     }
 
-    match /appointments/{appointmentId} {
-      allow read, write: if isOwner();
-    }
-
-    match /deviceTokens/{tokenId} {
+    match /{document=**} {
       allow read, write: if isOwner();
     }
   }
